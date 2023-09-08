@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Pintura example project</title>
+        <link
+            rel="stylesheet"
+            href="./node_modules/@pqina/pintura/pintura.css"
+        />
+        <link rel="stylesheet" href="./styles.css" />
+    </head>
+    <body>
+        <h1>Pintura Image Editor</h1>
+
+        <div class="inline-editor" style="width: 90vw; height: 600px"></div>
+
+        <p><img class="inline-result" src="" alt="" /></p>
+
+        <script type="module">
+            // default imports
+            import {
+                appendDefaultEditor,
+
+                // used to register retouch plugin and set tools
+                setPlugins,
+                getShapeById,
+                updateShapeById,
+                selectionToMask,
+                createRetouchShape,
+                createMarkupEditorToolStyles,
+                createMarkupEditorSelectionModeControl,
+                createMarkupEditorBrushSizeControl,
+                createMarkupEditorShapeStyleControls,
+                createMarkupEditorSelectionToolStyles,
+                createMarkupEditorSelectionTools,
+
+                // retouch plugin and locale
+                plugin_retouch,
+                plugin_retouch_locale_en_gb,
+            } from './node_modules/@pqina/pintura/pintura.js';
+
+            // custom functions needed for custom retouch functionality
+            import {
+                appendRetouchInpaintButtons,
+                appendRetouchFeatherSlider,
+                appendRetouchInpaintResultNavigation,
+                requestInpaintPrompt,
+                createInpaintShape,
+                attachInpaintAction,
+                attachCleanAction,
+            } from './retouch.js';
+
+            setPlugins(plugin_retouch);
+
+            const editor = appendDefaultEditor('.inline-editor', {
+                src: './image.jpeg',
+                util: 'retouch',
+
+                // add retouch tools
+                retouchToolShapes: createMarkupEditorToolStyles({
+                    // add inpaint mode selection styles
+                    ...createMarkupEditorSelectionToolStyles('inpaint'),
+
+                    // add clean mode selection styles
+                    ...createMarkupEditorSelectionToolStyles('clean', {
+                        // which tools to enable
+                        tools: ['brush'],
+                    }),
+                }),
+
+                // add retouch tool groups (groups are optional)
+                retouchTools: [
+                    // Inpaint group
+                    [
+                        'Inpaint',
+
+                        // Enable all tools
+                        createMarkupEditorSelectionTools('inpaint'),
+                    ],
+
+                    // Clean group
+                    [
+                        'Clean',
+
+                        // only show brush tool
+                        createMarkupEditorSelectionTools('clean', {
+                            tools: ['brush'],
+                        }),
+                    ],
+                ],
+
+                // enable defaults tools for retouch panel
+                retouchShapeControls: createMarkupEditorShapeStyleControls(),
+
+                // add shape controls
+                retouchWillRenderShapeControls: (controls, activeShapeId) => {
+                    // no controls to render
+                    if (!activeShapeId) return controls;
+
+                    // get active shape
+                    const activeShape = getShapeById(
+                        editor.imageManipulation,
+                        activeShapeId
+                    );
+
+                    // Add inpaint buttons
+                    appendRetouchInpaintButtons(controls, {
+                        editor,
+                        activeShape,
+                        // Update prompt
+                        onupdate: ({ shapePrompt }) =>
+                            requestInpaintPrompt(editor, {
+                                text: shapePrompt,
+                                onconfirm: (text) => {
+                                    createInpaintShape(
+                                        editor,
+                                        createRetouchShape,
+                                        text,
+                                        activeShape.inpaint.selection,
+                                        activeShape
+                                    );
+                                },
+                                onclose: () => {
+                                    // clear selection
+                                    editor.imageSelection = [];
+                                },
+                                onerror: (err) => {
+                                    // handle error
+                                },
+                            }),
+                        // Generate more results
+                        ongenerate: ({ shapePrompt, shapeSelection }) => {
+                            // clear any selection made
+                            editor.imageSelection = [];
+
+                            // paint new results based on current data
+                            createInpaintShape(
+                                editor,
+                                createRetouchShape,
+                                shapePrompt,
+                                shapeSelection,
+                                activeShape
+                            );
+                        },
+                    });
+
+                    // Add the feather control
+                    appendRetouchFeatherSlider(controls, {
+                        // set current value
+                        value: activeShape.feather,
+
+                        // receive updated value and update the shape
+                        onchange: ({ value }) => {
+                            editor.imageManipulation = updateShapeById(
+                                // shape list
+                                editor.imageManipulation,
+
+                                // shape to update
+                                activeShapeId,
+
+                                // updater function
+                                (shape) => ({
+                                    ...shape,
+                                    feather: value,
+                                })
+                            );
+                        },
+                    });
+
+                    // add results nav
+                    appendRetouchInpaintResultNavigation(controls, {
+                        activeShape,
+                        onupdate: ({ shapeBackgroundImage }) => {
+                            editor.imageManipulation = updateShapeById(
+                                // shape list
+                                editor.imageManipulation,
+
+                                // shape to update
+                                activeShapeId,
+
+                                // updater function
+                                (shape) => ({
+                                    ...shape,
+                                    backgroundImage: shapeBackgroundImage,
+                                })
+                            );
+                        },
+                    });
+
+                    // done adding controls
+                    return controls;
+                },
+            });
+
+            // set up clean and inpaint actions
+            attachInpaintAction(editor, createRetouchShape);
+            attachCleanAction(editor, createRetouchShape);
+
+            // default editor events
+
+            editor.on('load', (res) => console.log('load', res));
+
+            editor.on('loaderror', (err) => console.error('loaderror', err));
+
+            editor.on('process', (res) =>
+                document
+                    .querySelector('.inline-result')
+                    .setAttribute('src', URL.createObjectURL(res.dest))
+            );
+
+            editor.on('processerror', (err) =>
+                console.error('processerror', err)
+            );
+        </script>
+    </body>
+</html>
