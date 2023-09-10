@@ -11,11 +11,13 @@
         <link rel="stylesheet" href="./styles.css" />
     </head>
     <body>
-        <h1>Pintura Image Editor</h1>
+        <h1>Pintura image editor Retouch demo</h1>
 
-        <div class="inline-editor" style="width: 90vw; height: 600px"></div>
+        <p>This project uses a beta version of Pintura.</p>
 
-        <p><img class="inline-result" src="" alt="" /></p>
+        <div class="editor" style="width: 90vw; height: 600px"></div>
+
+        <p><img class="result" src="" alt="" /></p>
 
         <script type="module">
             // default imports
@@ -26,11 +28,8 @@
                 setPlugins,
                 getShapeById,
                 updateShapeById,
-                selectionToMask,
                 createRetouchShape,
                 createMarkupEditorToolStyles,
-                createMarkupEditorSelectionModeControl,
-                createMarkupEditorBrushSizeControl,
                 createMarkupEditorShapeStyleControls,
                 createMarkupEditorSelectionToolStyles,
                 createMarkupEditorSelectionTools,
@@ -53,9 +52,24 @@
 
             setPlugins(plugin_retouch);
 
-            const editor = appendDefaultEditor('.inline-editor', {
+            const editor = appendDefaultEditor('.editor', {
                 src: './image.jpeg',
                 util: 'retouch',
+
+                utils: [
+                    'crop',
+                    'retouch',
+                    'filter',
+                    'finetune',
+                    'annotate',
+                    'frame',
+                    'redact',
+                    'resize',
+                ],
+
+                locale: {
+                    ...plugin_retouch_locale_en_gb,
+                },
 
                 // add retouch tools
                 retouchToolShapes: createMarkupEditorToolStyles({
@@ -199,13 +213,11 @@
 
             // default editor events
 
-            editor.on('load', (res) => console.log('load', res));
-
             editor.on('loaderror', (err) => console.error('loaderror', err));
 
             editor.on('process', (res) =>
                 document
-                    .querySelector('.inline-result')
+                    .querySelector('.result')
                     .setAttribute('src', URL.createObjectURL(res.dest))
             );
 

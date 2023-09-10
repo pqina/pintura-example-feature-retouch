@@ -1,5 +1,7 @@
 # Pintura Retouch example project
 
+This project uses the Retouch plugin to add inpainting functionality to Pintura.
+
 ## Demo
 
 [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/pqina/pintura-example-feature-retouch?file=index.html)
@@ -8,13 +10,22 @@
 
 If it's not already installed we need to install [Node.js](https://nodejs.org)
 
-Then we [install the project dependencies](https://nodejs.dev/en/learn/an-introduction-to-the-npm-package-manager/#introduction-to-npm) by running `npm install` in a terminal window. This will install `@pqina/pintura`, and a local node server.
+Then we [install the project dependencies](https://nodejs.dev/en/learn/an-introduction-to-the-npm-package-manager/#introduction-to-npm) by running `npm install` in a terminal window. This will install `@pqina/pintura`, and the needed modules to run a local server and API.
+
+Create a `.env` file in the root of the project and add copy paste the values below, you'll need to create a [Replicate](https://replicate.com) and [Clipdrop](https://clipdrop.co) account to generate your tokens.
+
+```bash
+# Replicate access token
+REPLICATE_API_TOKEN=abcd1234
+
+# Replicate token for stable-diffusion-inpainting model
+REPLICATE_INPAINT_MODEL=abcd1234
+
+# Clipdrop access token
+CLIPDROP_API_TOKEN=abcd1234
+```
 
 Run `npm start` to start a local test server at [http://localhost:8080](http://localhost:8080)
-
-## Retouch
-
-At the top of the retouch.js file you can find a set of constants you'll have to edit to fit your server environment.
 
 ## Questions
 

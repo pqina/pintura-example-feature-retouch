@@ -1,20 +1,3 @@
-// Key to use for ClipDrop API requests
-// should only use this locally when testing, when using on production please move this lofic to your server
-const CLIPDROP_API_KEY = '1234ABCD';
-
-// POST request http://localhost:8080/inpaint
-// formdata fields
-// - 'image' <blob>
-// - 'mask' <blob>
-// - 'prompt' <str>
-// - 'outputs' <number>
-// returns { id }
-const INPAINT_INIT_LOCATION = 'http://localhost:8080/inpaint';
-
-// GET request http://localhost:8080/prediction/<id>?bust=timestamp
-// returns array of image urls when ready
-const INPAINT_POLL_LOCATION = 'http://localhost:8080/prediction/';
-
 /**
  * Append inpaint buttons to shape controls
  * @param {*} controls
@@ -220,8 +203,8 @@ export const createInpaintShape = (
                 maskBlob,
                 prompt,
                 {
-                    // just handy
-                    debug: true,
+                    // enable to see the files being sent and receives
+                    debug: false,
 
                     // total results we want back
                     count: 4,
@@ -381,7 +364,7 @@ export const createCleanShape = (editor, createRetouchShape, selection) => {
                 maskBlob,
                 {
                     controller,
-                    debug: true,
+                    debug: false,
                 }
             );
 
@@ -437,7 +420,7 @@ export const attachCleanAction = (editor, createRetouchShape) => {
 };
 
 /**
- * Kistens for selection changes and determine if should open inpaint prompt
+ * Listens for selection changes and determine if should open inpaint prompt
  * @param {*} editor
  * @param {*} createRetouchShape
  */
@@ -495,33 +478,25 @@ const requestCleanResult = (imageBlob, maskBlob, options = {}) =>
         // show input images
         if (debug) {
             console.log({ imageBlob, maskBlob });
-
             const imgA = new Image();
             imgA.src = URL.createObjectURL(imageBlob);
-
             const imgB = new Image();
             imgB.src = URL.createObjectURL(maskBlob);
-
             document.body.append(imgA, imgB);
         }
 
         // data to send to inpaint API
         const form = new FormData();
-        form.append('image_file', imageBlob);
-        form.append('mask_file', maskBlob);
+        form.append('image', imageBlob);
+        form.append('mask', maskBlob);
 
-        const res = await fetch('https://clipdrop-api.co/cleanup/v1', {
+        const res = await fetch('http://localhost:3000/api/clean', {
             method: 'POST',
-            headers: {
-                'x-api-key': CLIPDROP_API_KEY,
-            },
             body: form,
             signal: controller.signal,
         });
 
         if (res.status !== 200) {
-            const json = await res.json();
-            console.error(json);
             reject('Something went wrong');
         }
 
@@ -560,10 +535,8 @@ const requestInpaintResults = async (
         if (debug) {
             const imgB = new Image();
             imgB.src = URL.createObjectURL(maskBlob);
-
             const imgA = new Image();
             imgA.src = URL.createObjectURL(imageBlob);
-
             document.body.append(imgB, imgA);
         }
 
@@ -577,7 +550,7 @@ const requestInpaintResults = async (
         // start inpaint process for this data
         const res = await fetch(
             // replace with path to server location to start inpaint process
-            INPAINT_INIT_LOCATION,
+            'http://localhost:3000/api/inpaint',
             {
                 method: 'POST',
                 body: formData,
@@ -620,7 +593,10 @@ const requestInpaintResults = async (
 
             const { output } = await fetch(
                 // replace with path to server location to poll inpaint progress
-                INPAINT_POLL_LOCATION + id + '?bust=' + Date.now(),
+                'http://localhost:3000/api/inpaint/' +
+                    id +
+                    '?bust=' +
+                    Date.now(),
                 {
                     signal: controller.signal,
                 }
