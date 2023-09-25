@@ -15,6 +15,10 @@ Then we [install the project dependencies](https://nodejs.dev/en/learn/an-introd
 Create a `.env` file in the root of the project and copy paste the values below. You'll need to create a [Replicate](https://replicate.com) and/or [Clipdrop](https://clipdrop.co) account to generate the needed tokens.
 
 ```bash
+# Server location
+HOST=localhost
+PORT=3000
+
 # Replicate access token
 REPLICATE_API_TOKEN=abcd1234
 

@@ -8,8 +8,13 @@ import dotenv from 'dotenv';
 
 // get .env
 dotenv.config();
-const { REPLICATE_API_TOKEN, REPLICATE_INPAINT_MODEL, CLIPDROP_API_TOKEN } =
-    process.env;
+const {
+    HOST,
+    PORT,
+    REPLICATE_API_TOKEN,
+    REPLICATE_INPAINT_MODEL,
+    CLIPDROP_API_TOKEN,
+} = process.env;
 
 // helper functions
 const imageToDataURL = (imageFile) => {
@@ -20,8 +25,8 @@ const imageToDataURL = (imageFile) => {
 // server config
 const app = express();
 const upload = multer();
-const port = 3000;
-const hostname = 'localhost';
+const port = PORT;
+const hostname = HOST;
 
 app.use(cors());
 app.use(express.static('static'));
