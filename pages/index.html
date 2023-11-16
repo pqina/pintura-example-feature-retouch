@@ -13,8 +13,6 @@
     <body>
         <h1>Pintura image editor Retouch demo</h1>
 
-        <p>This project uses a beta version of Pintura.</p>
-
         <div class="editor" style="width: 90vw; height: 600px"></div>
 
         <p><img class="result" src="" alt="" /></p>
@@ -23,16 +21,19 @@
             // default imports
             import {
                 appendDefaultEditor,
+                processDefaultImage,
 
                 // used to register retouch plugin and set tools
                 setPlugins,
                 getShapeById,
                 updateShapeById,
+                selectionToMask,
                 createRetouchShape,
                 createMarkupEditorToolStyles,
                 createMarkupEditorShapeStyleControls,
                 createMarkupEditorSelectionToolStyles,
                 createMarkupEditorSelectionTools,
+                createDefaultImageScrambler,
 
                 // retouch plugin and locale
                 plugin_retouch,
@@ -54,6 +55,7 @@
 
             const editor = appendDefaultEditor('.editor', {
                 src: './image.jpeg',
+
                 util: 'retouch',
 
                 utils: [
@@ -63,8 +65,6 @@
                     'finetune',
                     'annotate',
                     'frame',
-                    'redact',
-                    'resize',
                 ],
 
                 locale: {
@@ -73,6 +73,9 @@
 
                 // add retouch tools
                 retouchToolShapes: createMarkupEditorToolStyles({
+                    // add redact mode selection styles
+                    ...createMarkupEditorSelectionToolStyles('redact'),
+
                     // add inpaint mode selection styles
                     ...createMarkupEditorSelectionToolStyles('inpaint'),
 
@@ -85,6 +88,9 @@
 
                 // add retouch tool groups (groups are optional)
                 retouchTools: [
+                    // Redact group
+                    ['Redact', createMarkupEditorSelectionTools('redact')],
+
                     // Inpaint group
                     [
                         'Inpaint',
@@ -211,15 +217,218 @@
             attachInpaintAction(editor, createRetouchShape);
             attachCleanAction(editor, createRetouchShape);
 
-            // default editor events
+            // Example using selection to mask for redact feature
+            {
+                let imageScalar;
+                let imageScaled;
 
+                const redact = async (selectionItem) => {
+                    // Create mask shape
+                    const {
+                        rect: maskRect,
+                        shape: maskShape,
+                        canvas: maskCanvas,
+                    } = await selectionToMask(
+                        [selectionItem],
+                        editor.imageSize,
+                        editor.imageState,
+                        {
+                            // gets an additional band of pixels around the selection
+                            padding: 8,
+
+                            // returns a canvas
+                            format: 'canvas',
+
+                            // uses alpha for transparent parts
+                            foregroundColor: [0, 0, 0, 0],
+                        }
+                    );
+
+                    // Show mask canvas, for debugging purposes
+                    {
+                        document.getElementById('maskCanvas')?.remove();
+                        maskCanvas.id = 'maskCanvas';
+                        maskCanvas.style.cssText = `margin:10px;border:1px solid silver;background-color:#ccc;background-image:url("data:image/svg+xml,%3Csvg width='8' height='8' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23E5E5E5'%3E%3Cpath d='M0 0h4v4H0zM4 4h4v4H4z'/%3E%3C/g%3E%3C/svg%3E");height:20vh;`;
+                        document.body.append(maskCanvas);
+                    }
+
+                    // Scrambled scaled image data
+                    const { dest: scrambledCanvas } = await processDefaultImage(
+                        imageScaled,
+                        {
+                            imageCropLimitToImage: false,
+                            imageWriter: {
+                                format: 'canvas',
+                                mimeType: 'image/png',
+                            },
+
+                            // copy transforms
+                            imageFlipX: editor.imageFlipX,
+                            imageFlipY: editor.imageFlipY,
+                            imageRotation: editor.imageRotation,
+
+                            // crop area of mask shape
+                            imageCrop: {
+                                x: maskRect.x * imageScalar,
+                                y: maskRect.y * imageScalar,
+                                width: maskRect.width * imageScalar,
+                                height: maskRect.height * imageScalar,
+                            },
+
+                            // redact area of mask shape
+                            imageRedaction: [
+                                {
+                                    ...maskShape,
+                                    x: maskShape.x * imageScalar,
+                                    y: maskShape.y * imageScalar,
+                                    width: maskShape.width * imageScalar,
+                                    height: maskShape.height * imageScalar,
+                                },
+                            ],
+
+                            // customize look of redaction
+                            imageScrambler: createDefaultImageScrambler({
+                                // higher is more pixels
+                                dataSizeScalar: 1,
+
+                                // higher is more randomness in pixel offset
+                                scrambleAmount: 1,
+
+                                // higher is more blurry look instead of pixely look
+                                blurAmount: 5,
+                            }),
+
+                            // uncomment to add red overlay, for debugging purposes
+                            /*
+                            imageAnnotation: [
+                                {
+                                    x: 0,
+                                    y: 0,
+                                    width: '100%',
+                                    height: '100%',
+                                    backgroundColor: [1, 0, 0, 0.25],
+                                },
+                            ],
+                            */
+                        }
+                    );
+
+                    // Show mask canvas, for debugging purposes
+                    {
+                        document.getElementById('scrambledCanvas')?.remove();
+                        scrambledCanvas.id = 'scrambledCanvas';
+                        scrambledCanvas.style.cssText = `margin:10px;border:1px solid silver;height:20vh;`;
+                        document.body.append(scrambledCanvas);
+                    }
+
+                    // Redacted canvas
+                    const backgroundImage = document.createElement('canvas');
+                    backgroundImage.width = maskRect.width * imageScalar;
+                    backgroundImage.height = maskRect.height * imageScalar;
+                    const ctx = backgroundImage.getContext('2d');
+                    ctx.drawImage(
+                        scrambledCanvas,
+                        0,
+                        0,
+                        backgroundImage.width,
+                        backgroundImage.height
+                    );
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.drawImage(
+                        maskCanvas,
+                        0,
+                        0,
+                        backgroundImage.width,
+                        backgroundImage.height
+                    );
+
+                    editor.imageManipulation = [
+                        ...editor.imageManipulation,
+                        {
+                            ...maskShape,
+
+                            // Use redacted canvas as background
+                            backgroundImage,
+
+                            // Change selection style
+                            selectionStyle: 'hook',
+
+                            // Can't manipulate shape
+                            disableStyle: true,
+                            disableFlip: true,
+                            disableReorder: true,
+                            disableManipulate: true,
+                        },
+                    ];
+                };
+
+                editor.on('selectionup', async (selectionItems) => {
+                    const lastSelectionItem =
+                        selectionItems[selectionItems.length - 1];
+
+                    // is not a "inpaint" selection action
+                    if (
+                        !lastSelectionItem ||
+                        lastSelectionItem.action !== 'redact'
+                    )
+                        return;
+
+                    // do something
+                    redact(lastSelectionItem);
+
+                    // clear image selection
+                    editor.imageSelection = [];
+                });
+
+                // Create scaled down version of source image for faster redacting
+                editor.on('load', async ({ size }) => {
+                    // target image size for scrambling
+                    const MAX_IMAGE_SIZE = 512;
+
+                    // scale down image file for scrambling purposes
+                    const { dest } = await processDefaultImage(
+                        editor.imageFile,
+                        {
+                            imageWriter: {
+                                targetSize: {
+                                    width: MAX_IMAGE_SIZE,
+                                },
+                            },
+                        }
+                    );
+                    imageScalar = Math.min(1, MAX_IMAGE_SIZE / size.width);
+                    imageScaled = dest;
+
+                    // Uncomment to load selection shape on start, useful for debugging purposes
+                    /*
+                    editor.imageSelection = [
+                        {
+                            x: 128,
+                            y: 128,
+                            width: 128,
+                            height: 512,
+                            rotation: -editor.imageRotation,
+                        },
+                    ];
+
+                    // run custom action
+                    redact(editor.imageSelection[0]);
+
+                    // clear image selection
+                    editor.imageSelection = [];
+                    */
+                });
+            }
+
+            // default editor events
             editor.on('loaderror', (err) => console.error('loaderror', err));
 
-            editor.on('process', (res) =>
+            editor.on('process', (res) => {
+                console.log('Result', res);
                 document
                     .querySelector('.result')
-                    .setAttribute('src', URL.createObjectURL(res.dest))
-            );
+                    .setAttribute('src', URL.createObjectURL(res.dest));
+            });
 
             editor.on('processerror', (err) =>
                 console.error('processerror', err)

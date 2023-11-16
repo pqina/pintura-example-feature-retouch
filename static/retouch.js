@@ -14,12 +14,7 @@ export const appendRetouchInpaintButtons = (
         labelGenerate = 'Generate more',
     }
 ) => {
-    if (
-        activeShape.status === 'loading' ||
-        !activeShape.inpaint ||
-        !activeShape.inpaint.prompt
-    )
-        return;
+    if (activeShape.status === 'loading' || !activeShape.inpaint) return;
 
     const { prompt, selection } = activeShape.inpaint;
 
@@ -231,7 +226,16 @@ export const createInpaintShape = (
         // our editor params
         {
             // extra spacing around mask
-            padding: 100,
+            padding: 0,
+
+            // scale down
+            targetSize: {
+                width: 512,
+                height: 512,
+            },
+
+            // we want a square canvas
+            forceSquareCanvas: true,
 
             // current retouches so new inpaint blends, we remove the targetShape if it is set
             retouches: targetShape
@@ -618,6 +622,7 @@ const requestInpaintResults = async (
             }
 
             console.log('Got results', output.length);
+
             // done!
             resolve(output);
         };
